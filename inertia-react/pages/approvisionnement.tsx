@@ -113,6 +113,7 @@ import {
 import { Tooltip, TooltipTrigger } from '@r/components/base/tooltip/tooltip'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
 import { useDataStatusStore } from '@r/lib/data-status-store'
+import { useVisibleSubviews } from '@r/lib/view-prefs/store'
 import { route } from '@r/lib/routes'
 import { LigneFilterPill } from '@r/components/appro/ligne-filter-pill'
 import {
@@ -468,6 +469,14 @@ export default function Approvisionnement() {
   const [custom, setCustom] = useState(() => boot.range ?? presetRange('libre', new Date()))
   const [gran, setGran] = useState<ApproGran>(boot.gran ?? 'semaine')
   const [vue, setVue] = useState<ApproVue>('manque')
+  // Sous-vues masquées dans /configuration/vues : on retire les onglets et on
+  // replie sur la première vue visible si la vue active vient d'être masquée.
+  const visibleVues = useVisibleSubviews('approvisionnement')
+  useEffect(() => {
+    if (visibleVues.length > 0 && !visibleVues.includes(vue)) {
+      setVue(visibleVues[0] as ApproVue)
+    }
+  }, [visibleVues, vue])
   const [query, setQuery] = useState('')
   const [supply, setSupply] = useState<SupplyFilter>('ACHAT')
   const [manquesOnly, setManquesOnly] = useState(false)
@@ -772,7 +781,7 @@ export default function Approvisionnement() {
                     if (next) setVue(next)
                   }}
                 >
-                  {VUES.map((c) => (
+                  {VUES.filter((c) => visibleVues.includes(c.id)).map((c) => (
                     <TooltipTrigger key={c.id}>
                       <SegmentedControlItem id={c.id} className={segmentItemDense}>
                         {c.label}

@@ -137,6 +137,11 @@ router
     router
       .get('/configuration/affichage', '#controllers/display_config_controller.index')
       .as('display_config.index')
+    // Choix des pages et sous-vues (page « Vues ») — préférences par utilisateur
+    // persistées en base (`users.view_prefs`), appliquées par view_prefs_middleware.
+    router
+      .get('/configuration/vues', '#controllers/view_prefs_controller.index')
+      .as('view_prefs.index')
     router.get('/impressions', '#controllers/print_journal_controller.index').as('print_journal')
 
     // Configuration calendrier usine — API JSON (issue #37).
@@ -308,6 +313,12 @@ router
       .patch('/api/v1/user/dashboard-layout', '#controllers/dashboard_layout_controller.update')
       .as('user.dashboard_layout.update')
 
+    // Préférences de vues (pages + sous-vues) — PATCH par le client à chaque
+    // mutation depuis /configuration/vues. Persisté sur le modèle User courant.
+    router
+      .patch('/api/v1/user/view-prefs', '#controllers/view_prefs_controller.update')
+      .as('user.view_prefs.update')
+
     // Réceptions fournisseurs — planning réceptions attendues + charge palettes par jour.
     router
       .get('/api/v1/receptions/rows', '#controllers/receptions_controller.rows')
@@ -405,4 +416,4 @@ router
       })
       .prefix('/api/v1/agent')
   })
-  .use([middleware.auth(), middleware.x3Context()])
+  .use([middleware.auth(), middleware.x3Context(), middleware.viewPrefs()])

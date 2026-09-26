@@ -270,6 +270,11 @@ declare module '@adonisjs/inertia/types' {
     // Réglages d'affichage (issue #186) — aucune prop : les préférences vivent
     // dans le navigateur (lib/display-prefs-store.ts), pas côté serveur.
     'config/affichage': {}
+    // Choix des pages et sous-vues (page « Vues ») — préférences par utilisateur
+    // persistées en base (`users.view_prefs`), partagées par Inertia (`viewPrefs`).
+    'config/vues': {
+      prefs: { version: number; hiddenPages: string[]; hiddenSubviews: string[] }
+    }
     // Routage d'impression du dossier d'OF (issue #85, lot 2).
     'config/impressions': {
       ateliers: { code: string; label: string }[]

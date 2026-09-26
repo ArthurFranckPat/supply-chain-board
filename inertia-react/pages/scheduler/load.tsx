@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, router } from '@inertiajs/react'
 import { route } from '@r/lib/routes'
+import { useVisibleSubviews } from '@r/lib/view-prefs/store'
 import { PRODUCED_HOURS_POSTE_KEY } from '@r/lib/produced-hours/types'
 import {
   TriangleAlert,
@@ -196,6 +197,14 @@ export default function Load(props: LoadPageProps) {
   const stored = useMemo(() => readStoredModes(), [])
 
   const [view, setView] = useState<LoadView>(stored.view)
+  // Sous-vues masquées dans /configuration/vues : repli sur la première visible
+  // si la vue restaurée de session a été masquée depuis.
+  const visibleViews = useVisibleSubviews('load')
+  useEffect(() => {
+    if (visibleViews.length > 0 && !visibleViews.includes(view)) {
+      setView(visibleViews[0] as LoadView)
+    }
+  }, [visibleViews, view])
   const [selected, setSelected] = useState(props.ofLines[0]?.code ?? '')
   const [gran, setGran] = useState<Gran>(stored.gran)
   const [query, setQuery] = useState('')
@@ -1044,11 +1053,13 @@ export default function Load(props: LoadPageProps) {
    *  `perimeterControls` pour le plein écran. */
   const viewSegment = (
     <Segment role="radiogroup" ariaLabel="Vue">
-      {(['of', 'commande', 'sous_ensembles'] as const).map((v) => (
-        <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
-          {v === 'of' ? 'OF' : v === 'commande' ? 'Commande' : 'Sous-ensembles CLP'}
-        </SegmentButton>
-      ))}
+      {(['of', 'commande', 'sous_ensembles'] as const)
+        .filter((v) => visibleViews.includes(v))
+        .map((v) => (
+          <SegmentButton key={v} role="radio" active={view === v} onClick={() => setView(v)}>
+            {v === 'of' ? 'OF' : v === 'commande' ? 'Commande' : 'Sous-ensembles CLP'}
+          </SegmentButton>
+        ))}
     </Segment>
   )
 

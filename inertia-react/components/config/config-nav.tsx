@@ -11,12 +11,13 @@ import { Link } from '@inertiajs/react'
 
 import { route } from '@r/lib/routes'
 
-export type ConfigTab = 'calendrier' | 'impressions' | 'affichage'
+export type ConfigTab = 'calendrier' | 'impressions' | 'affichage' | 'vues'
 
 const TABS: { key: ConfigTab; label: string; href: string }[] = [
   { key: 'calendrier', label: 'Calendrier usine', href: route('calendar_config.index') },
   { key: 'impressions', label: 'Impressions', href: route('print_config.index') },
   { key: 'affichage', label: 'Affichage', href: route('display_config.index') },
+  { key: 'vues', label: 'Vues', href: route('view_prefs.index') },
 ]
 
 export interface ConfigNavProps {

@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { cn } from '@r/lib/utils'
 import { useBoardStore, statusActive, posteNatureActive } from '@r/lib/board/store'
 import { useOrderBoardStore } from '@r/lib/orders/orders-store'
+import { useVisibleSubviews } from '@r/lib/view-prefs/store'
 import type { FeasibilityMode, PosteNatureFilterKey } from '@r/lib/board/types'
 import { ChevronDown, SlidersHorizontal, FlaskConical, ClipboardList } from 'lucide-react'
 import { DynamicIcon } from '../ui/dynamic-icon'
@@ -101,6 +102,13 @@ export function ProgrammeToolbar(props: {
    *  Actions). Sorti du Masthead pour éviter le doublon visuel avec la toolbar. */
   search?: React.ReactNode
 }) {
+  // Sous-vues masquées dans /configuration/vues : on ne rend que les modes
+  // visibles. L'ordre d'affichage reste OF → Combiné → Cmdes.
+  const visibleModes = useVisibleSubviews('programme')
+  const modes: VisionMode[] = (['ordonnancement', 'combined', 'planification'] as const).filter(
+    (m) => visibleModes.includes(m)
+  )
+
   // Statut — sélecteurs primitifs (pas d'objet littéral : un nouvel objet à
   // chaque rendu casse le cache de snapshot de useSyncExternalStore → boucle
   // infinie « Maximum update depth exceeded »). Pas de hook dans un .map()
@@ -133,7 +141,7 @@ export function ProgrammeToolbar(props: {
     <ToolbarRow>
       {/* Mode — segment */}
       <Segment role="radiogroup" ariaLabel="Mode d'affichage">
-        {(['ordonnancement', 'combined', 'planification'] as const).map((m) => (
+        {modes.map((m) => (
           <SegmentButton
             key={m}
             role="radio"

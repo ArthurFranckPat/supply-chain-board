@@ -30,11 +30,24 @@ class InertiaCore extends BaseInertiaMiddleware {
       const lastSync = await staticSync.lastSync().catch(() => null)
       x3SyncCache = { at: Date.now(), lastSync }
     }
+    // Objet littéral (et non l'interface `ViewPrefs`) : les props Inertia exigent
+    // une signature d'index JSON ; un type nommé sans index ne s'y prête pas.
+    const prefs = isAuthed && ctx.auth.user ? ctx.auth.user.getViewPrefs() : null
     return {
       authUser:
         isAuthed && ctx.auth.user
           ? { username: ctx.auth.user.username, env: ctx.auth.user.lastEnv }
           : null,
+      // Préférences de vues (pages + sous-vues) — partagées à toutes les pages
+      // pour que le masthead et chaque sélecteur de sous-vues les lisent sans
+      // requête dédiée. `null` hors session.
+      viewPrefs: prefs
+        ? {
+            version: prefs.version,
+            hiddenPages: prefs.hiddenPages,
+            hiddenSubviews: prefs.hiddenSubviews,
+          }
+        : null,
       flash: ctx.session?.flashMessages.all() ?? {},
       x3LastSync: x3SyncCache.lastSync,
     }

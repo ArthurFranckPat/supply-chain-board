@@ -27,4 +27,5 @@ export const middleware = router.named({
   auth: () => import('#middleware/auth_middleware'),
   guest: () => import('#middleware/guest_middleware'),
   x3Context: () => import('#middleware/x3_context_middleware'),
+  viewPrefs: () => import('#middleware/view_prefs_middleware'),
 })

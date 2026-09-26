@@ -7,7 +7,7 @@
  * toolbar + switch) — le rendu de chaque mode vit dans
  * components/tracking/*-view.tsx (issue #52).
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Search } from 'lucide-react'
 
@@ -30,6 +30,7 @@ import {
 } from '@r/lib/suivi/tracking-shared'
 import { useDiffFlash } from '@r/lib/use-diff-flash'
 import { useDataStatusStore } from '@r/lib/data-status-store'
+import { useVisibleSubviews } from '@r/lib/view-prefs/store'
 import {
   REACTIVE_DIFF_FIELDS,
   REACTIVE_FIELD_LABELS,
@@ -137,6 +138,14 @@ export default function Tracking(props: SuiviPageProps) {
   // ── Vue proactive (réalisabilité des commandes via le moteur séquentiel) ──
   // Vue par défaut : c'est celle qui porte la réalisabilité, donc l'usage quotidien.
   const [mode, setMode] = useState<'reactif' | 'proactif'>('proactif')
+  // Sous-vues masquées dans /configuration/vues : repli sur la première visible
+  // si la vue active vient d'être masquée.
+  const visibleViews = useVisibleSubviews('tracking')
+  useEffect(() => {
+    if (visibleViews.length > 0 && !visibleViews.includes(mode)) {
+      setMode(visibleViews[0] as 'reactif' | 'proactif')
+    }
+  }, [visibleViews, mode])
   const {
     data: proData,
     loading: proLoading,
@@ -455,22 +464,26 @@ export default function Tracking(props: SuiviPageProps) {
         <ToolbarRow className="select-none" noWrap>
           {/* Bascule Réactif / Proactif */}
           <Segment role="radiogroup" ariaLabel="Vue" className="shrink-0">
-            <SegmentButton
-              role="radio"
-              active={mode === 'reactif'}
-              onClick={() => setMode('reactif')}
-              title="Suivi as-is : statuts allocation/expédition + causes de retard"
-            >
-              Réactif
-            </SegmentButton>
-            <SegmentButton
-              role="radio"
-              active={mode === 'proactif'}
-              onClick={() => setMode('proactif')}
-              title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
-            >
-              Proactif
-            </SegmentButton>
+            {visibleViews.includes('reactif') && (
+              <SegmentButton
+                role="radio"
+                active={mode === 'reactif'}
+                onClick={() => setMode('reactif')}
+                title="Suivi as-is : statuts allocation/expédition + causes de retard"
+              >
+                Réactif
+              </SegmentButton>
+            )}
+            {visibleViews.includes('proactif') && (
+              <SegmentButton
+                role="radio"
+                active={mode === 'proactif'}
+                onClick={() => setMode('proactif')}
+                title="Réalisabilité projetée : consommation séquentielle des composants entre OFs"
+              >
+                Proactif
+              </SegmentButton>
+            )}
           </Segment>
 
           {/* Fenêtre — sélecteur de plage (filtre client, pas de re-fetch). */}

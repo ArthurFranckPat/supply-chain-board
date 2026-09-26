@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/react'
 import { Masthead, type MastheadTab } from '@r/components/masthead'
 import { cn } from '@r/lib/utils'
 import { DesktopOnlyNotice } from '@r/components/desktop-only-notice'
+import { ViewPrefsBridge } from '@r/components/view-prefs-bridge'
 
 /**
  * AppLayout — shell applicatif Layout B (B2B adapté Airbnb).
@@ -109,6 +110,9 @@ export function AppLayout({
       )}
     >
       {title && <Head title={title} />}
+
+      {/* Amorce le store des préférences de vues depuis les props Inertia. */}
+      <ViewPrefsBridge />
 
       {!hideMasthead && (
         <Masthead

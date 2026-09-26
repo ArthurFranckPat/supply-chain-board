@@ -70,6 +70,7 @@ import { useShortcuts } from '@r/lib/a11y/shortcuts'
 import { toast } from 'sonner'
 import { virtualOrdersFrom } from '@r/lib/scenarios/types'
 import { route } from '@r/lib/routes'
+import { useVisibleSubviews } from '@r/lib/view-prefs/store'
 import { cn } from '@r/lib/utils'
 import type { DateRange } from '@r/components/vision/programme-toolbar'
 
@@ -209,6 +210,15 @@ export default function Programme(props: VisionProps) {
 
   // Mode local (plus de round-trip serveur au switch)
   const [mode, setMode] = useState<VisionMode>(props.mode)
+  // Sous-vues masquées dans /configuration/vues : repli sur la première visible.
+  // Le serveur a déjà clampé le mode initial (deep-link `?mode=`) ; ce filet
+  // couvre le cas où la vue active est masquée en cours de session.
+  const visibleModes = useVisibleSubviews('programme')
+  useEffect(() => {
+    if (visibleModes.length > 0 && !visibleModes.includes(mode)) {
+      setMode(visibleModes[0] as VisionMode)
+    }
+  }, [visibleModes, mode])
 
   // Re-sync stores après navigation Inertia (keyé sur windowFrom)
   useEffect(() => {

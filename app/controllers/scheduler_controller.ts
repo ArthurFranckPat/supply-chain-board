@@ -33,6 +33,7 @@ import {
   type RuptureDataset,
   type RuptureOfInput,
 } from '#app/domain/rupture_engine'
+import { DEFAULT_VIEW_PREFS, PAGES, isSubviewHidden } from '#types/view_prefs'
 
 // ---------------------------------------------------------------------------
 
@@ -132,12 +133,28 @@ export default class SchedulerController {
   /** GET /programme — vue unifiée OF ↔ commandes (issue #21, #22). */
   async programme(ctx: HttpContext) {
     const rawMode = ctx.request.input('mode') as string | undefined
-    const mode: 'combined' | 'ordonnancement' | 'planification' =
+    const requested: 'combined' | 'ordonnancement' | 'planification' =
       rawMode === 'ordonnancement'
         ? 'ordonnancement'
         : rawMode === 'planification'
           ? 'planification'
           : 'combined'
+
+    // Préférences de vues : si le mode demandé (deep-link `?mode=`, redirection
+    // `/planification`) est masqué pour cet utilisateur, repli sur la première
+    // sous-vue visible de Programme. Le switch côté client ne peut pas, lui,
+    // atteindre un mode masqué puisque ses boutons ne sont pas rendus.
+    const prefs = ctx.auth.user?.getViewPrefs() ?? DEFAULT_VIEW_PREFS
+    const programmeViews = PAGES.find((p) => p.key === 'programme')!.subviews
+    const requestedVisible = programmeViews.some(
+      (s) => s.key === requested && !isSubviewHidden(prefs, 'programme', s.key)
+    )
+    const mode = (
+      requestedVisible
+        ? requested
+        : (programmeViews.find((s) => !isSubviewHidden(prefs, 'programme', s.key))?.key ??
+          'combined')
+    ) as 'combined' | 'ordonnancement' | 'planification'
 
     // Les 3 modes (Combiné / OF / Cmdes) dérivent du MÊME payload (board OF + orderBoard
     // lignes) → le switch se fait côté client (toggle UI, zéro round-trip). `mode` n'est lu

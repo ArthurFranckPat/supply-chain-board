@@ -7,6 +7,8 @@ import { route } from '@r/lib/routes'
 import { cn } from '@r/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@r/components/ui/sheet'
 import UserMenu from '@r/components/user-menu'
+import { isPageHidden, type PageKey } from '@r/lib/view-prefs/registry'
+import { useViewPrefs } from '@r/lib/view-prefs/store'
 
 /**
  * Masthead partagé du runtime React — port du masthead Solid.
@@ -257,6 +259,14 @@ const MOBILE_SECTIONS: TabGroup[] = [
 
 function MobileNav({ active }: { active: MastheadTab }) {
   const [open, setOpen] = useState(false)
+  const prefs = useViewPrefs()
+
+  // Mêmes règles que le desktop : une page masquée disparaît, une section sans
+  // onglet visible ne laisse pas d'en-tête orphelin.
+  const sections = MOBILE_SECTIONS.map((group) => ({
+    ...group,
+    tabs: group.tabs.filter((t) => !isPageHidden(prefs, t.key as PageKey)),
+  })).filter((group) => group.tabs.length > 0)
 
   return (
     <>
@@ -274,7 +284,7 @@ function MobileNav({ active }: { active: MastheadTab }) {
             Supply Chain <span className="text-primary">AERECO</span>
           </SheetTitle>
           <nav className="flex flex-col py-2">
-            {MOBILE_SECTIONS.map((group, gi) => (
+            {sections.map((group, gi) => (
               <div key={gi} className={cn(gi > 0 && 'mt-1 border-t border-border pt-1')}>
                 {group.label && (
                   <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -325,6 +335,19 @@ export function Masthead(props: {
 
   const tabCls = variant === 'airbnb' ? tabClsAirbnb : tabClsStock
 
+  // Préférences de vues : on retire les pages masquées des menus. Le masthead ne
+  // connaît PAS les sous-vues — chacune se filtre dans sa propre page.
+  const prefs = useViewPrefs()
+  const visible = (k: MastheadTab) => !isPageHidden(prefs, k as PageKey)
+  const filterGroups = (groups: TabGroup[]): TabGroup[] =>
+    groups
+      .map((g) => ({ ...g, tabs: g.tabs.filter((t) => visible(t.key)) }))
+      .filter((g) => g.tabs.length > 0)
+  const ordGroups = filterGroups(ORDONNANCEMENT_GROUPS)
+  const planGroups = filterGroups(PLANIFICATION_GROUPS)
+  const logGroups = filterGroups(LOGISTIQUE_GROUPS)
+  const plusGroups = filterGroups(PLUS_GROUPS)
+
   if (variant === 'airbnb') {
     // Layout fusionné : 1 seule rangée 64px (au lieu de 80+48=128 stock).
     // DESIGN.md top-nav : wordmark à gauche, onglets centrés, utilitaires droite.
@@ -368,7 +391,7 @@ export function Masthead(props: {
 
         {/* Nav centrée — DESIGN.md top-nav : onglets au milieu. */}
         <nav className="hidden flex-1 items-center justify-center gap-0 lg:flex">
-          {/* Tableau de bord */}
+          {/* Tableau de bord (épinglé — toujours visible) */}
           <Link
             href={TABLEAU_DE_BORD.href}
             className={tabCls(TABLEAU_DE_BORD.key === props.active)}
@@ -376,46 +399,54 @@ export function Masthead(props: {
             {TABLEAU_DE_BORD.label}
           </Link>
           {/* Ordonnancement ▾ */}
-          <MoreMenu
-            label="Ordonnancement"
-            groups={ORDONNANCEMENT_GROUPS}
-            active={props.active}
-            triggerCls={tabCls(
-              ORDONNANCEMENT_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-            )}
-          />
+          {ordGroups.length > 0 && (
+            <MoreMenu
+              label="Ordonnancement"
+              groups={ordGroups}
+              active={props.active}
+              triggerCls={tabCls(ordGroups.some((g) => g.tabs.some((t) => t.key === props.active)))}
+            />
+          )}
           {/* Suivi commandes */}
-          <Link
-            href={SUIVI_COMMANDES.href}
-            className={tabCls(SUIVI_COMMANDES.key === props.active)}
-          >
-            {SUIVI_COMMANDES.label}
-          </Link>
+          {visible(SUIVI_COMMANDES.key) && (
+            <Link
+              href={SUIVI_COMMANDES.href}
+              className={tabCls(SUIVI_COMMANDES.key === props.active)}
+            >
+              {SUIVI_COMMANDES.label}
+            </Link>
+          )}
           {/* Planification ▾ */}
-          <MoreMenu
-            label="Planification"
-            groups={PLANIFICATION_GROUPS}
-            active={props.active}
-            triggerCls={tabCls(
-              PLANIFICATION_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-            )}
-          />
+          {planGroups.length > 0 && (
+            <MoreMenu
+              label="Planification"
+              groups={planGroups}
+              active={props.active}
+              triggerCls={tabCls(
+                planGroups.some((g) => g.tabs.some((t) => t.key === props.active))
+              )}
+            />
+          )}
           {/* Logistique ▾ */}
-          <MoreMenu
-            label="Logistique"
-            groups={LOGISTIQUE_GROUPS}
-            active={props.active}
-            triggerCls={tabCls(
-              LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-            )}
-          />
+          {logGroups.length > 0 && (
+            <MoreMenu
+              label="Logistique"
+              groups={logGroups}
+              active={props.active}
+              triggerCls={tabCls(logGroups.some((g) => g.tabs.some((t) => t.key === props.active)))}
+            />
+          )}
           {/* Plus ▾ */}
-          <MoreMenu
-            label="Plus"
-            groups={PLUS_GROUPS}
-            active={props.active}
-            triggerCls={tabCls(PLUS_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)))}
-          />
+          {plusGroups.length > 0 && (
+            <MoreMenu
+              label="Plus"
+              groups={plusGroups}
+              active={props.active}
+              triggerCls={tabCls(
+                plusGroups.some((g) => g.tabs.some((t) => t.key === props.active))
+              )}
+            />
+          )}
         </nav>
 
         {/* Bloc droit : actions + statut données + UserMenu. */}
@@ -473,39 +504,46 @@ export function Masthead(props: {
         <Link href={TABLEAU_DE_BORD.href} className={tabCls(TABLEAU_DE_BORD.key === props.active)}>
           {TABLEAU_DE_BORD.label}
         </Link>
-        <MoreMenu
-          label="Ordonnancement"
-          groups={ORDONNANCEMENT_GROUPS}
-          active={props.active}
-          triggerCls={tabCls(
-            ORDONNANCEMENT_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-          )}
-        />
-        <Link href={SUIVI_COMMANDES.href} className={tabCls(SUIVI_COMMANDES.key === props.active)}>
-          {SUIVI_COMMANDES.label}
-        </Link>
-        <MoreMenu
-          label="Planification"
-          groups={PLANIFICATION_GROUPS}
-          active={props.active}
-          triggerCls={tabCls(
-            PLANIFICATION_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-          )}
-        />
-        <MoreMenu
-          label="Logistique"
-          groups={LOGISTIQUE_GROUPS}
-          active={props.active}
-          triggerCls={tabCls(
-            LOGISTIQUE_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active))
-          )}
-        />
-        <MoreMenu
-          label="Plus"
-          groups={PLUS_GROUPS}
-          active={props.active}
-          triggerCls={tabCls(PLUS_GROUPS.some((g) => g.tabs.some((t) => t.key === props.active)))}
-        />
+        {ordGroups.length > 0 && (
+          <MoreMenu
+            label="Ordonnancement"
+            groups={ordGroups}
+            active={props.active}
+            triggerCls={tabCls(ordGroups.some((g) => g.tabs.some((t) => t.key === props.active)))}
+          />
+        )}
+        {visible(SUIVI_COMMANDES.key) && (
+          <Link
+            href={SUIVI_COMMANDES.href}
+            className={tabCls(SUIVI_COMMANDES.key === props.active)}
+          >
+            {SUIVI_COMMANDES.label}
+          </Link>
+        )}
+        {planGroups.length > 0 && (
+          <MoreMenu
+            label="Planification"
+            groups={planGroups}
+            active={props.active}
+            triggerCls={tabCls(planGroups.some((g) => g.tabs.some((t) => t.key === props.active)))}
+          />
+        )}
+        {logGroups.length > 0 && (
+          <MoreMenu
+            label="Logistique"
+            groups={logGroups}
+            active={props.active}
+            triggerCls={tabCls(logGroups.some((g) => g.tabs.some((t) => t.key === props.active)))}
+          />
+        )}
+        {plusGroups.length > 0 && (
+          <MoreMenu
+            label="Plus"
+            groups={plusGroups}
+            active={props.active}
+            triggerCls={tabCls(plusGroups.some((g) => g.tabs.some((t) => t.key === props.active)))}
+          />
+        )}
         <div className="ml-auto flex items-center gap-2 py-1.5">
           {props.actions}
           <DataStatus />

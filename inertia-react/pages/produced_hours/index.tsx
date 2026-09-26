@@ -4,6 +4,7 @@ import type { DateRange as DayPickerRange } from 'react-day-picker'
 import { Search, X, Loader2 } from 'lucide-react'
 import AppLayout from '@r/layouts/app'
 import { cn } from '@r/lib/utils'
+import { useVisibleSubviews } from '@r/lib/view-prefs/store'
 import {
   DateWindowPill,
   RefreshPill,
@@ -172,6 +173,18 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
     }
   }
 
+  // Sous-vues masquées dans /configuration/vues : repli sur la première visible,
+  // en déclenchant le fetch comme le ferait un clic sur l'onglet.
+  const visibleViews = useVisibleSubviews('heures_produites')
+  useEffect(() => {
+    if (visibleViews.length === 0 || visibleViews.includes(view)) return
+    const next = visibleViews[0] as 'heures' | 'commandes'
+    setView(next)
+    if (next === 'commandes' && !ordersData) fetchData(from, to, 'commandes', dateMode)
+    else if (next === 'heures' && !hoursData) fetchData(from, to, 'heures', dateMode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleViews, view])
+
   // Handle Date Mode Change
   const handleDateModeChange = (newMode: OrderDateMode) => {
     setDateMode(newMode)
@@ -271,20 +284,24 @@ export default function ProducedHoursPage(initialProps: ProducedHoursPageProps) 
         <ToolbarRow noWrap className="flex-none">
           {/* Commutateur de Vision */}
           <Segment role="radiogroup" ariaLabel="Vision">
-            <SegmentButton
-              role="radio"
-              active={view === 'heures'}
-              onClick={() => handleViewChange('heures')}
-            >
-              Heures produites
-            </SegmentButton>
-            <SegmentButton
-              role="radio"
-              active={view === 'commandes'}
-              onClick={() => handleViewChange('commandes')}
-            >
-              Vision commandes
-            </SegmentButton>
+            {visibleViews.includes('heures') && (
+              <SegmentButton
+                role="radio"
+                active={view === 'heures'}
+                onClick={() => handleViewChange('heures')}
+              >
+                Heures produites
+              </SegmentButton>
+            )}
+            {visibleViews.includes('commandes') && (
+              <SegmentButton
+                role="radio"
+                active={view === 'commandes'}
+                onClick={() => handleViewChange('commandes')}
+              >
+                Vision commandes
+              </SegmentButton>
+            )}
           </Segment>
 
           {/* Commutateur Date demandée / acceptée (OTD) quand la vision commandes est active */}

@@ -7,6 +7,7 @@ import {
   normalizeDashboardLayout,
   type DashboardLayout,
 } from '#types/dashboard_layout'
+import { DEFAULT_VIEW_PREFS, normalizeViewPrefs, type ViewPrefs } from '#types/view_prefs'
 
 /**
  * Utilisateur applicatif (issue #13).
@@ -51,6 +52,15 @@ export default class User extends BaseModel {
   @column({ columnName: 'dashboard_layout' })
   declare dashboardLayoutRaw: string | null
 
+  /**
+   * Préférences de vues (pages du menu + sous-vues) de l'utilisateur (JSON
+   * sérialisé). `null` tant que l'utilisateur n'a rien personnalisé →
+   * `getViewPrefs()` retourne alors `DEFAULT_VIEW_PREFS` (tout visible).
+   * Toujours relire via le getter.
+   */
+  @column({ columnName: 'view_prefs' })
+  declare viewPrefsRaw: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
@@ -85,5 +95,23 @@ export default class User extends BaseModel {
   /** Sérialise et persiste le layout du tableau de bord. */
   setDashboardLayout(layout: DashboardLayout): void {
     this.dashboardLayoutRaw = JSON.stringify(normalizeDashboardLayout(layout))
+  }
+
+  /**
+   * Lit les préférences de vues (toujours un objet valide, jamais `null`).
+   * Robuste aux évolutions du registre : normalise et écarte les clés inconnues.
+   */
+  getViewPrefs(): ViewPrefs {
+    if (!this.viewPrefsRaw) return structuredClone(DEFAULT_VIEW_PREFS)
+    try {
+      return normalizeViewPrefs(JSON.parse(this.viewPrefsRaw))
+    } catch {
+      return structuredClone(DEFAULT_VIEW_PREFS)
+    }
+  }
+
+  /** Sérialise et persiste les préférences de vues. */
+  setViewPrefs(prefs: ViewPrefs): void {
+    this.viewPrefsRaw = JSON.stringify(normalizeViewPrefs(prefs))
   }
 }

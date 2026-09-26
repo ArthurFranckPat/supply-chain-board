@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DateRange as DayPickerRange } from 'react-day-picker'
 import {
   X,
@@ -18,6 +18,7 @@ import AppLayout from '@r/layouts/app'
 import { ReceptionTableau, ReceptionCalendrier } from '@r/components/receptions/reception-views'
 import { ReceptionBoard, type ReceptionGroupBy } from '@r/components/receptions/reception-board'
 import { useTimedFetch } from '@r/lib/suivi/use-timed-fetch'
+import { useVisibleSubviews } from '@r/lib/view-prefs/store'
 import { cn } from '@r/lib/utils'
 import {
   PILL,
@@ -96,6 +97,13 @@ const isoLocalDay = (d: Date) =>
 
 export default function Receptions(props: ReceptionsPageProps) {
   const [view, setView] = useState<ReceptionViewKind>('tableau')
+  // Sous-vues masquées dans /configuration/vues : repli sur la première visible.
+  const visibleViews = useVisibleSubviews('receptions')
+  useEffect(() => {
+    if (visibleViews.length > 0 && !visibleViews.includes(view)) {
+      setView(visibleViews[0] as ReceptionViewKind)
+    }
+  }, [visibleViews, view])
   const [range, setRange] = useState<DateRangeSel | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -238,25 +246,35 @@ export default function Receptions(props: ReceptionsPageProps) {
             )}
           </div>
 
-          {/* Vue — segment (Tableau / Charge par jour) */}
+          {/* Vue — segment (Tableau / Charge par jour / Board) */}
           <Segment role="radiogroup" ariaLabel="Vue">
-            <SegmentButton
-              role="radio"
-              active={view === 'tableau'}
-              onClick={() => setView('tableau')}
-            >
-              Tableau
-            </SegmentButton>
-            <SegmentButton
-              role="radio"
-              active={view === 'calendrier'}
-              onClick={() => setView('calendrier')}
-            >
-              Charge par jour
-            </SegmentButton>
-            <SegmentButton role="radio" active={view === 'board'} onClick={() => setView('board')}>
-              Board
-            </SegmentButton>
+            {visibleViews.includes('tableau') && (
+              <SegmentButton
+                role="radio"
+                active={view === 'tableau'}
+                onClick={() => setView('tableau')}
+              >
+                Tableau
+              </SegmentButton>
+            )}
+            {visibleViews.includes('calendrier') && (
+              <SegmentButton
+                role="radio"
+                active={view === 'calendrier'}
+                onClick={() => setView('calendrier')}
+              >
+                Charge par jour
+              </SegmentButton>
+            )}
+            {visibleViews.includes('board') && (
+              <SegmentButton
+                role="radio"
+                active={view === 'board'}
+                onClick={() => setView('board')}
+              >
+                Board
+              </SegmentButton>
+            )}
           </Segment>
 
           {/* Regroupement des lignes du board (fournisseur = cadence, quai = charge pure). */}
