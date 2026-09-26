@@ -59,14 +59,14 @@ export const PAGES: PageDef[] = [
   {
     key: 'dashboard',
     label: 'Tableau de bord',
-    group: "Vue d'ensemble",
+    group: 'Accès directs',
     pinned: true,
     subviews: [],
   },
   {
     key: 'tracking',
     label: 'Suivi commandes',
-    group: 'Suivi',
+    group: 'Accès directs',
     subviews: [
       { key: 'proactif', label: 'Proactif' },
       { key: 'reactif', label: 'Réactif' },
@@ -135,19 +135,19 @@ export const PAGES: PageDef[] = [
   {
     key: 'promesse',
     label: 'Promesse',
-    group: 'Outils',
+    group: 'Plus',
     subviews: [],
   },
   {
     key: 'copilote',
     label: 'Copilote',
-    group: 'Outils',
+    group: 'Plus',
     subviews: [],
   },
   {
     key: 'config',
     label: 'Config',
-    group: 'Outils',
+    group: 'Plus',
     subviews: [
       { key: 'calendrier', label: 'Calendrier usine' },
       { key: 'impressions', label: 'Impressions' },
