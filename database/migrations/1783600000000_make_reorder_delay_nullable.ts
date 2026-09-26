@@ -29,24 +29,59 @@ export default class extends BaseSchema {
       )`
   }
 
+  /* `us_par_palette` et `status` sont ajoutes par le chemin X3 (sync), pas par
+   * une migration : sur une base neuve ils sont absents et le SELECT nominatif
+   * echouait en `no such column`. SQLite validant les colonnes a la compilation
+   * (meme dans une branche CASE jamais prise), on teste l'existence en JS et on
+   * construit la liste de colonnes — la table neuve prend alors ses defauts. */
+  private async copy(reorderExpr: string) {
+    const info: any = await this.db.rawQuery(
+      "SELECT name FROM pragma_table_info('static_articles')"
+    )
+    const rows = info?.rows ?? info ?? []
+    const names = new Set(rows.map((r: any) => r.name))
+    const cols = [
+      'code',
+      'description',
+      'category',
+      'supply_type',
+      'synced_at',
+      'famille',
+      'typologie',
+      'reorder_delay',
+    ]
+    const sel = [
+      'code',
+      'description',
+      'category',
+      'supply_type',
+      'synced_at',
+      'famille',
+      'typologie',
+      reorderExpr,
+    ]
+    if (names.has('us_par_palette')) {
+      cols.push('us_par_palette')
+      sel.push('us_par_palette')
+    }
+    if (names.has('status')) {
+      cols.push('status')
+      sel.push('status')
+    }
+    this.schema.raw(`INSERT INTO static_articles_new (${cols.join(', ')})
+      SELECT ${sel.join(', ')} FROM static_articles`)
+  }
+
   async up() {
     this.schema.raw(this.createTable('NULL'))
-    this.schema.raw(`INSERT INTO static_articles_new
-      (code, description, category, supply_type, synced_at, famille, typologie,
-       reorder_delay, us_par_palette, status)
-      SELECT code, description, category, supply_type, synced_at, famille, typologie,
-       reorder_delay, us_par_palette, status FROM static_articles`)
+    await this.copy('reorder_delay')
     this.schema.raw('DROP TABLE static_articles')
     this.schema.raw('ALTER TABLE static_articles_new RENAME TO static_articles')
   }
 
   async down() {
     this.schema.raw(this.createTable(`NOT NULL DEFAULT '14'`))
-    this.schema.raw(`INSERT INTO static_articles_new
-      (code, description, category, supply_type, synced_at, famille, typologie,
-       reorder_delay, us_par_palette, status)
-      SELECT code, description, category, supply_type, synced_at, famille, typologie,
-       COALESCE(reorder_delay, 14), us_par_palette, status FROM static_articles`)
+    await this.copy(`COALESCE(reorder_delay, 14)`)
     this.schema.raw('DROP TABLE static_articles')
     this.schema.raw('ALTER TABLE static_articles_new RENAME TO static_articles')
   }
