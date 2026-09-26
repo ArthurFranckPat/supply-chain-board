@@ -8,7 +8,7 @@
  *  - Le HTML doit être **autonome** : JS et CSS inlinés, zéro requête réseau. La
  *    resource `ui://supply-board/<app>` est servie par le protocole MCP, pas par un
  *    serveur de fichiers, et la CSP déclarée n'autorise aucun domaine.
- *  - Une app par build (`inlineDynamicImports`) : avec plusieurs entrées, Rollup
+ *  - Une app par build (`codeSplitting: false`) : avec plusieurs entrées, Rolldown
  *    sortirait un chunk commun (React) partagé entre apps — inlinable seulement au
  *    prix d'un graphe d'imports à recoller. Une app = un chunk = une substitution.
  *  - L'artefact est **commité** (contrainte #80 : `npm run mcp:start` doit marcher
@@ -136,9 +136,9 @@ for (const app of apps) {
       cssCodeSplit: false,
       modulePreload: false,
       // Bundle déterministe : hash figé, sinon le diff git bouge à chaque build.
-      rollupOptions: {
+      rolldownOptions: {
         output: {
-          inlineDynamicImports: true,
+          codeSplitting: false,
           entryFileNames: 'app.js',
           assetFileNames: 'app.[ext]',
         },
