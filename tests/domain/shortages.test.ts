@@ -6,8 +6,17 @@ import {
   buildShortageRows,
   fabricationDaysFromHours,
   resolveCoveringReception,
-  isoLocalDay,
 } from '#app/domain/shortages'
+
+/**
+ * Date de référence FIGÉE, un mercredi (jour ouvré sans férié voisin).
+ *
+ * Le buffer logistique J-2 se décompte en jours OUVRÉS (`subWorkingDays`,
+ * issue #41) : les dates relatives portent donc sur le jour de la semaine où la
+ * suite est exécutée, et les expectations de marge basculaient de 2 selon le
+ * jour. Voir la note équivalente de `order_impacts.test.ts`.
+ */
+const TODAY = '2026-09-30T00:00:00'
 
 function article(code: string, desc: string): Article {
   return {
@@ -36,7 +45,12 @@ function reception(
   // Construit une date à midi local (12:00) → toISOString() slice(0,10) renvoie le bon
   // jour calendaire quel que soit le décalage horaire (cf. production : parseX3Date
   // renvoie un Date en local).
-  const d = new Date()
+  //
+  // Base FIGÉE sur un mercredi, pas `new Date()` : le buffer logistique J-2 se
+  // décompte en jours OUVRÉS, donc les dates relatives portent sur le jour de la
+  // semaine d'exécution et les expectations de marge basculaient de 2 selon le
+  // jour. Voir la note de `order_impacts.test.ts`.
+  const d = new Date(TODAY)
   d.setHours(12, 0, 0, 0)
   d.setDate(d.getDate() + dayOffset)
   return { id, article: articleCode, supplier, quantity: qty, date: d }
@@ -124,7 +138,7 @@ test.group('buildShortageRows', () => {
   }) => {
     // Commande en retard stock (+3j, cause sans rapport) mais réception à J+1 pour un
     // besoin à J+8 (expé J+10 − buffer 2) → la LIGNE composant est couverte à temps.
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 10)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -185,7 +199,7 @@ test.group('buildShortageRows', () => {
   test('verdict "couvert" si réception disponible et pas de retard sur commande', ({ assert }) => {
     // Réception couvrante dès aujourd'hui ; expédition à J+5 → arrive avant la date de
     // besoin (expé − buffer logistique J-2 OUVRÉ − 1 j de fabrication) → couvert.
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 5)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -244,7 +258,7 @@ test.group('buildShortageRows', () => {
   }) => {
     // Expédition à J+2 → besoin à J−1 (2 j logistique + 1 j fabrication plancher) ;
     // réception couvrante à J+9 → 10 j après le besoin (avant : 7j vs expé seule).
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 2)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -304,7 +318,7 @@ test.group('buildShortageRows', () => {
     // Expédition à J+10 → besoin à J+7 (2 j logistique + 1 j fabrication plancher) ;
     // réception à J+9 : avant l'expé mais après le besoin → À RISQUE (marge +1 j vs client).
     // Avant : « retard ». La nuance : le client est encore livrable, la logistique est serrée.
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 10)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -386,7 +400,7 @@ test.group('buildShortageRows', () => {
 
   test('a_risque : joursMarge = expé − arrivée (marge logistique restante)', ({ assert }) => {
     // Expé J+20, besoin J+17 (2+1), réception J+18 → À RISQUE, marge +2 j.
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 20)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -441,7 +455,7 @@ test.group('buildShortageRows', () => {
 
   test('retard : arrivée APRÈS expédition → retard client + joursMarge négatif', ({ assert }) => {
     // Expé J+10, besoin J+7, réception J+13 → RETARD client (3 j), joursMarge = −3.
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 10)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -499,7 +513,7 @@ test.group('buildShortageRows', () => {
     assert,
   }) => {
     // Expé J+5, réception attendue J−3 (overdue), aujourd'hui = J0 → client encore tenable.
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 5)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -546,7 +560,9 @@ test.group('buildShortageRows', () => {
     const rows = buildShortageRows(
       result,
       new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, -3)]]]),
-      new Map()
+      new Map(),
+      undefined,
+      { todayIso: TODAY.slice(0, 10) }
     ).rows
     assert.isTrue(rows[0].overdue)
     assert.equal(rows[0].verdict, 'a_risque')
@@ -555,7 +571,7 @@ test.group('buildShortageRows', () => {
 
   test("overdue + aujourd'hui > expédition → RETARD client", ({ assert }) => {
     // Expé J−1 (déjà passée), réception attendue J−3 (overdue), aujourd'hui = J0.
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() - 1)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -602,7 +618,9 @@ test.group('buildShortageRows', () => {
     const rows = buildShortageRows(
       result,
       new Map([['C1', [reception('PO-1', 'C1', 'FX', 10, -3)]]]),
-      new Map()
+      new Map(),
+      undefined,
+      { todayIso: TODAY.slice(0, 10) }
     ).rows
     assert.isTrue(rows[0].overdue)
     assert.equal(rows[0].verdict, 'retard')
@@ -685,7 +703,7 @@ test.group('buildShortageRows', () => {
     assert,
   }) => {
     const fab: Article = { ...article('SE1', 'Sous-ensemble 1'), supplyType: 'FABRICATION' }
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 20)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -740,7 +758,7 @@ test.group('buildShortageRows', () => {
   test('verdict "couvert" si la réception arrive AVANT la date d\'expédition (pas de retard réception)', ({
     assert,
   }) => {
-    const exp = new Date()
+    const exp = new Date(TODAY)
     exp.setHours(12, 0, 0, 0)
     exp.setDate(exp.getDate() + 20)
     const expIso = `${exp.getFullYear()}-${String(exp.getMonth() + 1).padStart(2, '0')}-${String(exp.getDate()).padStart(2, '0')}`
@@ -1357,7 +1375,7 @@ test.group('buildShortageRows — consommation séquentielle entre lignes', () =
     )
     const receptions = new Map([['C1', [reception('PO-1', 'C1', 'F', 10, -5)]]])
     const { rows } = buildShortageRows(result, receptions, new Map(), new Map(), {
-      todayIso: isoLocalDay(),
+      todayIso: TODAY.slice(0, 10),
     })
     assert.isTrue(rows[0].overdue)
     assert.equal(rows[0].joursRetardReception, 5)

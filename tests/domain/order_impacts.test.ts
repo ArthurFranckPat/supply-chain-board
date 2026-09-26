@@ -5,7 +5,16 @@ import type { Nomenclature } from '#app/domain/models/nomenclature'
 import type { OfOverride } from '#app/domain/planning_board'
 import { evaluateOrderImpacts, netDemandsByAllocation } from '#app/domain/order_impacts'
 
-const TODAY = new Date()
+/**
+ * Date de référence FIGÉE, un mercredi (jour ouvré sans férié voisin).
+ *
+ * Ne pas utiliser `new Date()` : le buffer logistique J-2 se décompte en jours
+ * OUVRÉS (`subWorkingDays`, issue #41), donc les dates relatives portent sur le
+ * jour de la semaine où la suite est exécutée. Lance un samedi, 2 jours ouvrés
+ * remontent de 4 jours calendaires et les expectations `joursRetard` chutent de
+ * 2 — la suite devenait verte ou rouge selon le jour, sur 3 fichiers.
+ */
+const TODAY = new Date('2026-09-30T00:00:00')
 TODAY.setHours(0, 0, 0, 0)
 
 function daysFromNow(n: number): Date {
@@ -162,8 +171,12 @@ test.group('evaluateOrderImpacts', () => {
       new Map([['OF-B', 15]])
     )
     assert.equal(heavyCharge.orders[0].statut, 'retard')
-    // requiredStart = expedBornee(J8) - 15j = J-7 ; aujourd'hui = J0 → retard = 7
-    assert.equal(heavyCharge.orders[0].joursRetard, 7)
+    // Expé J+10 = SAMEDI. Le buffer J-2 se décompte en jours OUVRÉS (issue #41) :
+    // on recule de 2 jours ouvrés, pas de 2 jours calendaires — samedi → jeudi
+    // J+8. D'où requiredStart = J8 - 15j = J-3, aujourd'hui = J0 → retard 3.
+    // (L'ancienne expectation 7 supposait un buffer calendaire, le même écart
+    // que les autres tests de marge.)
+    assert.equal(heavyCharge.orders[0].joursRetard, 3)
   })
 
   test('bloquee when OF component has no stock', ({ assert }) => {

@@ -14,7 +14,15 @@ import {
 } from '#app/domain/plan_diff'
 import { evaluateOrderImpacts } from '#app/domain/order_impacts'
 
-const TODAY = new Date()
+/**
+ * Date de référence FIGÉE, un mercredi (jour ouvré sans férié voisin).
+ *
+ * Même raison que dans `tests/domain/order_impacts.test.ts` : le buffer
+ * logistique J-2 se décompte en jours OUVRÉS (issue #41), donc les dates
+ * relatives portent sur le jour de la semaine d'exécution et les verdicts
+ * basculaient selon le jour de la semaine.
+ */
+const TODAY = new Date('2026-09-30T00:00:00')
 TODAY.setHours(0, 0, 0, 0)
 
 function daysFromNow(n: number): Date {
@@ -270,16 +278,18 @@ test.group('evaluatePlanDiff', () => {
       },
     ])
 
-    // Réaction d'offre : l'OF virtuel, calé pour être fini 2 j avant l'expé (buffer
-    // logistique), lancé 7 j plus tôt (50 h de charge / 7,5 h par jour).
+    // Réaction d'offre : l'OF virtuel, calé pour être fini 2 jours OUVRÉS avant l'expé
+    // (buffer logistique, issue #41), lancé 8 j plus tôt — 50 h de charge sur
+    // DEFAULT_HOURS_PER_DAY = 7 h/j. Le commentaire d'origine divisait par 7,5 et
+    // attendait 7 jours : la cadence est passée à l'équipe de 7 h, d'où 8.
     assert.lengthOf(diff.offreVirtuelle, 1)
     const vof = diff.offreVirtuelle[0]
     assert.equal(vof.id, 'VOF-VIRT-1')
     assert.equal(vof.type, 'of')
     assert.equal(vof.quantite, 100)
     assert.equal(vof.dateFin, isoDaysFromNow(13))
-    assert.equal(vof.delai, 7)
-    assert.equal(vof.dateDebut, isoDaysFromNow(6))
+    assert.equal(vof.delai, 8)
+    assert.equal(vof.dateDebut, isoDaysFromNow(5))
     assert.equal(vof.poste, 'PP_830')
     assert.equal(vof.heures, 50)
     assert.deepEqual(vof.composants, [{ article: 'C1', besoin: 100, manquant: 40 }])
