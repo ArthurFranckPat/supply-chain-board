@@ -1,8 +1,26 @@
 import { defineConfig } from 'vite'
 import adonisjs from '@adonisjs/vite/client'
-import react from '@vitejs/plugin-react'
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
+
+// React 19 : Compiler natif, pas de target 18 ni de runtime polyfill.
+// Depuis @vitejs/plugin-react 6 (Vite 8), le plugin ne porte plus Babel :
+// le compilateur passe par @rolldown/plugin-babel. Filtre restreint aux
+// fichiers JS/TS du front, comme l'ancien `include` — Babel s'étouffe sur
+// les .css (':root {' lu comme du JSX).
+const reactCompilerBase = reactCompilerPreset()
+const reactCompiler = {
+  ...reactCompilerBase,
+  rolldown: {
+    ...reactCompilerBase.rolldown,
+    filter: {
+      ...reactCompilerBase.rolldown?.filter,
+      id: { include: /inertia-react\/.*\.(t|j)sx?$/ },
+    },
+  },
+}
 
 export default defineConfig({
   // `@adonisjs/vite` démarre un serveur Vite aussi sous `node ace test`. Le hash
@@ -13,22 +31,14 @@ export default defineConfig({
   // le sien.
   cacheDir: process.env.NODE_ENV === 'test' ? 'node_modules/.vite-test' : 'node_modules/.vite',
   plugins: [
-    react({
-      // On restreint aux fichiers JS/TS : si on laisse 'inertia-react/**', le plugin
-      // fait aussi passer les .css par Babel, qui s'étouffe sur ':root {' (vu comme
-      // du JSX). Les feuilles de style sont gérées par Vite lui-même.
-      include: [/inertia-react\/.*\.(t|j)sx?$/],
-      babel: {
-        // React 19 : Compiler natif, pas de target 18 ni de runtime polyfill.
-        plugins: ['babel-plugin-react-compiler'],
-      },
-    }),
+    react({ include: [/inertia-react\/.*\.(t|j)sx?$/] }),
+    babel({ presets: [reactCompiler] }),
     tailwindcss(),
     adonisjs({
       /**
        * Point d'entrée de l'app (React/Inertia).
        */
-      entrypoints: ['inertia-react/app.tsx'],
+      entryPoints: ['inertia-react/app.tsx'],
 
       /**
        * Recharge le navigateur quand le shell Edge ou une page front change.
