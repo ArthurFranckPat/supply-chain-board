@@ -17,6 +17,7 @@ export const PAGE_KEYS = [
   'tracking',
   'receptions',
   'conditionnements',
+  'logistics_analysis',
   'promesse',
   'copilote',
   'config',
@@ -113,6 +114,12 @@ export const PAGES: PageDef[] = [
   {
     key: 'conditionnements',
     label: 'Conditionnements',
+    group: 'Logistique',
+    subviews: [],
+  },
+  {
+    key: 'logistics_analysis',
+    label: 'Analyse logistique',
     group: 'Logistique',
     subviews: [],
   },

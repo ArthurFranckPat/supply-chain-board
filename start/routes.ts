@@ -126,6 +126,9 @@ router
     router
       .get('/conditionnements', '#controllers/conditionnements_controller.index')
       .as('conditionnements.index')
+    router
+      .get('/analyse-logistique', '#controllers/logistics_analysis_controller.index')
+      .as('logistics_analysis.index')
     router.get('/promesse', '#controllers/promise_controller.show').as('promesse.show')
     router.get('/copilote', '#controllers/agent_controller.show').as('agent.show')
     router.get('/configuration/calendrier', '#controllers/calendar_config_controller.index')
@@ -299,6 +302,9 @@ router
     router.get('/api/v1/dashboard/kpis', '#controllers/dashboard_controller.kpis')
     router.get('/api/v1/dashboard/otd', '#controllers/dashboard_controller.otd')
     router.get('/api/v1/dashboard/stock', '#controllers/dashboard_controller.stockValuation')
+    router
+      .get('/api/v1/logistique/analyse', '#controllers/logistics_analysis_controller.rows')
+      .as('logistics_analysis.rows')
     // Détail d'un article (sheet ouverte au clic d'une ligne du KPI stock).
     router.get(
       '/api/v1/dashboard/stock/article',

@@ -162,6 +162,9 @@ declare module '@adonisjs/inertia/types' {
     'conditionnements': {
       rowsHref: string
     }
+    'analyse-logistique': {
+      rowsHref: string
+    }
     'auth/login': {
       lastUsername: string
       lastEnv: 'test' | 'prod'

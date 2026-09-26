@@ -2,7 +2,7 @@
  * AUTO-GÉNÉRÉ par scripts/gen-routes-manifest.mjs — NE PAS ÉDITER À LA MAIN.
  * Source : `start/routes.ts` → `node ace list:routes --jsonl`.
  * Régénérer : `npm run routes:gen` · Vérifier la fraîcheur : `npm run routes:check`.
- * 115 routes nommées.
+ * 117 routes nommées.
  */
 
 export const MANIFEST = {
@@ -55,6 +55,8 @@ export const MANIFEST = {
   },
   'heures_produites.summary': { method: 'GET', pattern: '/api/v1/heures-produites/summary' },
   'load.index': { method: 'GET', pattern: '/charge' },
+  'logistics_analysis.index': { method: 'GET', pattern: '/analyse-logistique' },
+  'logistics_analysis.rows': { method: 'GET', pattern: '/api/v1/logistique/analyse' },
   'material.detail': { method: 'GET', pattern: '/api/v1/planning/material-plan/detail' },
   'material.plan': { method: 'GET', pattern: '/api/v1/planning/material-plan' },
   'order_planning.index': { method: 'GET', pattern: '/api/v1/planning/order-lines' },
@@ -209,6 +211,8 @@ export type RouteParams = {
   'heures_produites.orders_summary': void
   'heures_produites.summary': void
   'load.index': void
+  'logistics_analysis.index': void
+  'logistics_analysis.rows': void
   'material.detail': void
   'material.plan': void
   'order_planning.index': void

@@ -547,13 +547,11 @@ class BoardDataset {
     // aujourd'hui : on la réduit à ses buckets de période pour que la clé reste
     // stable d'un jour sur l'autre. `refDate` sort de la clé — il ne fait
     // qu'ancrer le calcul, et la factory reçoit toujours la date du jour.
-    // v3 : le payload porte en plus `categoriesEvolution` — une série par
-    // catégorie alignée sur TOUTES les périodes (le top 5 par période de `v2`
-    // ne suffisait pas à tracer une courbe stable par catégorie). Le suffixe
-    // force l'abandon des entrées v2 qui ne l'ont pas.
+    // v4 : chaque article porte aussi son stock moyen par période. Le suffixe
+    // force l'abandon des entrées v3 qui ne contiennent pas cette donnée.
     const key = pinned
-      ? `stock-valuation:v3:${grain}:${isoL(from)}:${isoL(to)}:${isoL(refDate)}`
-      : `stock-valuation:v3:${grain}:${periodBucket(grain, from)}:${periodBucket(grain, to)}`
+      ? `stock-valuation:v4:${grain}:${isoL(from)}:${isoL(to)}:${isoL(refDate)}`
+      : `stock-valuation:v4:${grain}:${periodBucket(grain, from)}:${periodBucket(grain, to)}`
     if (force) await board().delete({ key })
     return board().getOrSet({
       key,
